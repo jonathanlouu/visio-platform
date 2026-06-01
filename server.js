@@ -30,9 +30,16 @@ if (!fs.existsSync(VISITS_FILE)) {
 
 // Charger les utilisateurs depuis .env
 const USERS = {};
-(process.env.USERS || 'admin:admin').split(',').forEach(u => {
-  const [login, pass] = u.trim().split(':');
-  if (login && pass) USERS[login] = pass;
+const usersEnv = process.env.USERS || 'admin:admin';
+console.log('RAW USERS ENV:', JSON.stringify(usersEnv));
+usersEnv.split(',').forEach(u => {
+  const idx = u.indexOf(':');
+  if (idx > 0) {
+    const login = u.slice(0, idx).trim();
+    const pass = u.slice(idx + 1).trim();
+    USERS[login] = pass;
+    console.log('USER ADDED:', JSON.stringify(login), 'PASS:', JSON.stringify(pass));
+  }
 });
 
 // ─── Middleware ────────────────────────────────────────────────────────────────

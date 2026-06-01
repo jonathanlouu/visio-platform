@@ -68,6 +68,8 @@ function requireAuth(req, res, next) {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
+  console.log('LOGIN ATTEMPT:', JSON.stringify(username), JSON.stringify(password));
+  console.log('USERS OBJ:', JSON.stringify(USERS));
   if (USERS[username] && USERS[username] === password) {
     req.session.user = username;
     return res.redirect('/dashboard.html');

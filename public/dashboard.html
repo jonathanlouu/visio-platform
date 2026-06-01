@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Visio Technique</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; }
+
+  /* Header */
+  header {
+    background: #1a4f8a;
+    color: white;
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-logo {
+    width: 36px; height: 36px; background: rgba(255,255,255,0.2);
+    border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  }
+  .header-logo svg { width: 20px; height: 20px; fill: white; }
+  header h1 { font-size: 17px; font-weight: 600; }
+  .btn-logout {
+    background: rgba(255,255,255,0.15); color: white; border: none;
+    padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer;
+  }
+  .btn-logout:hover { background: rgba(255,255,255,0.25); }
+
+  /* Main */
+  main { max-width: 960px; margin: 0 auto; padding: 28px 20px; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
+  .stat-card {
+    background: white; border-radius: 12px; padding: 18px 20px;
+    border: 1px solid #e8edf3;
+  }
+  .stat-label { font-size: 12px; color: #888; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-value { font-size: 28px; font-weight: 700; color: #1a1a1a; margin-top: 4px; }
+  .stat-card.pending .stat-value { color: #d97706; }
+  .stat-card.active .stat-value { color: #059669; }
+  .stat-card.done .stat-value { color: #1a4f8a; }
+
+  /* Toolbar */
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .toolbar h2 { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+  .btn-primary {
+    background: #1a4f8a; color: white; border: none;
+    padding: 10px 18px; border-radius: 9px; font-size: 14px;
+    font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+  .btn-primary:hover { background: #153d6e; }
+
+  /* Filter tabs */
+  .filters { display: flex; gap: 6px; margin-bottom: 16px; }
+  .filter-btn {
+    padding: 6px 14px; border-radius: 7px; border: 1.5px solid #e0e6ee;
+    background: white; font-size: 13px; cursor: pointer; color: #555; font-weight: 500;
+  }
+  .filter-btn.active { background: #1a4f8a; color: white; border-color: #1a4f8a; }
+
+  /* Visit list */
+  .visits-list { display: flex; flex-direction: column; gap: 10px; }
+  .visit-card {
+    background: white; border-radius: 12px; padding: 16px 20px;
+    border: 1px solid #e8edf3;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .visit-card:hover { border-color: #c5d5e8; }
+  .visit-info { flex: 1; min-width: 0; }
+  .visit-name { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+  .visit-meta { font-size: 13px; color: #888; margin-top: 2px; }
+  .visit-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  .badge {
+    display: inline-flex; align-items: center; padding: 3px 10px;
+    border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-active { background: #d1fae5; color: #065f46; }
+  .badge-completed { background: #dbeafe; color: #1e40af; }
+
+  .btn-sm {
+    padding: 7px 12px; border-radius: 8px; font-size: 13px;
+    font-weight: 500; cursor: pointer; border: 1.5px solid #e0e6ee;
+    background: white; color: #444; white-space: nowrap;
+  }
+  .btn-sm:hover { background: #f5f8fb; }
+  .btn-sm.green { background: #059669; color: white; border-color: #059669; }
+  .btn-sm.green:hover { background: #047857; }
+  .btn-sm.blue { background: #1a4f8a; color: white; border-color: #1a4f8a; }
+  .btn-sm.blue:hover { background: #153d6e; }
+
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: #999;
+  }
+  .empty-state svg { width: 48px; height: 48px; fill: #ddd; margin: 0 auto 12px; display: block; }
+  .empty-state p { font-size: 15px; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white; border-radius: 16px;
+    padding: 32px; width: 100%; max-width: 440px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 24px; color: #1a1a1a; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; color: #444; margin-bottom: 6px; }
+  .form-group input {
+    width: 100%; padding: 10px 13px;
+    border: 1.5px solid #e0e6ee; border-radius: 9px;
+    font-size: 15px; outline: none; transition: border-color 0.2s;
+  }
+  .form-group input:focus { border-color: #1a4f8a; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+  .btn-cancel {
+    padding: 10px 18px; border-radius: 9px; border: 1.5px solid #e0e6ee;
+    background: white; color: #555; font-size: 14px; cursor: pointer;
+  }
+  .btn-cancel:hover { background: #f5f8fb; }
+
+  /* SMS modal */
+  .sms-box {
+    background: #f0f7ff; border: 1.5px solid #bcd4f0;
+    border-radius: 10px; padding: 14px 16px; margin: 16px 0;
+    font-size: 13px; color: #1a1a1a; line-height: 1.6;
+    word-break: break-all;
+  }
+  .link-highlight {
+    color: #1a4f8a; font-weight: 500;
+  }
+
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .visit-card { flex-direction: column; align-items: flex-start; }
+    .visit-actions { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+    </div>
+    <h1>Visio Technique</h1>
+  </div>
+  <button class="btn-logout" onclick="location.href='/logout'">Déconnexion</button>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat-card pending">
+      <div class="stat-label">En attente</div>
+      <div class="stat-value" id="count-pending">—</div>
+    </div>
+    <div class="stat-card active">
+      <div class="stat-label">En cours</div>
+      <div class="stat-value" id="count-active">—</div>
+    </div>
+    <div class="stat-card done">
+      <div class="stat-label">Terminées</div>
+      <div class="stat-value" id="count-done">—</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <h2>Visites</h2>
+    <button class="btn-primary" onclick="openModal()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Nouvelle visite
+    </button>
+  </div>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('all', this)">Toutes</button>
+    <button class="filter-btn" onclick="setFilter('pending', this)">En attente</button>
+    <button class="filter-btn" onclick="setFilter('in_progress', this)">En cours</button>
+    <button class="filter-btn" onclick="setFilter('completed', this)">Terminées</button>
+  </div>
+
+  <div class="visits-list" id="visits-list">
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      <p>Chargement…</p>
+    </div>
+  </div>
+</main>
+
+<!-- Modal nouvelle visite -->
+<div class="modal-overlay" id="modal-new">
+  <div class="modal">
+    <h3>Nouvelle visite</h3>
+    <div class="form-group">
+      <label>Nom du client *</label>
+      <input type="text" id="new-name" placeholder="Jean Dupont" />
+    </div>
+    <div class="form-group">
+      <label>Téléphone *</label>
+      <input type="tel" id="new-phone" placeholder="+33 6 12 34 56 78" />
+    </div>
+    <div class="form-group">
+      <label>Adresse</label>
+      <input type="text" id="new-address" placeholder="12 rue des Fleurs, 75001 Paris" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-new')">Annuler</button>
+      <button class="btn-primary" onclick="createVisit()">Créer la visite</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal SMS -->
+<div class="modal-overlay" id="modal-sms">
+  <div class="modal">
+    <h3 id="sms-title">Envoyer le lien SMS</h3>
+    <p id="sms-desc" style="font-size:14px;color:#555;margin-bottom:8px;"></p>
+    <div class="sms-box" id="sms-content"></div>
+    <div id="sms-demo-note" style="font-size:12px;color:#888;margin-bottom:8px;display:none">
+      ⚠️ Twilio non configuré — copiez ce lien et envoyez-le manuellement.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-sms')">Fermer</button>
+      <button class="btn-sm blue" onclick="copyLink()">Copier le lien</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allVisits = [];
+let currentFilter = 'all';
+let currentLink = '';
+
+async function loadVisits() {
+  const res = await fetch('/api/visits');
+  allVisits = await res.json();
+  updateStats();
+  renderVisits();
+}
+
+function updateStats() {
+  document.getElementById('count-pending').textContent = allVisits.filter(v => v.status === 'pending').length;
+  document.getElementById('count-active').textContent = allVisits.filter(v => v.status === 'in_progress').length;
+  document.getElementById('count-done').textContent = allVisits.filter(v => v.status === 'completed').length;
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderVisits();
+}
+
+function renderVisits() {
+  const list = document.getElementById('visits-list');
+  let filtered = allVisits;
+  if (currentFilter !== 'all') filtered = allVisits.filter(v => v.status === currentFilter);
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.35C18 2.54 15.96.5 13.5.5c-1.32 0-2.46.66-3.29 1.67-.28-.05-.57-.17-.88-.17C7.16 2 5.14 4.11 5.14 6H4C2.9 6 2 6.9 2 8v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+      <p>Aucune visite ${currentFilter !== 'all' ? 'dans cette catégorie' : ''}. Créez la première !</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(v => {
+    const date = new Date(v.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const badgeClass = { pending: 'badge-pending', in_progress: 'badge-active', completed: 'badge-completed' }[v.status] || 'badge-pending';
+    const badgeLabel = { pending: 'En attente', in_progress: 'En cours', completed: 'Terminée' }[v.status] || v.status;
+
+    const actions = [];
+    if (v.status === 'pending') {
+      actions.push(`<button class="btn-sm" onclick="sendSms('${v.id}')">📱 Envoyer SMS</button>`);
+    }
+    if (v.status !== 'completed') {
+      actions.push(`<button class="btn-sm green" onclick="joinCall('${v.id}')">▶ Rejoindre</button>`);
+    }
+    if (v.status === 'completed') {
+      actions.push(`<button class="btn-sm blue" onclick="downloadPdf('${v.id}')">📄 PDF</button>`);
+    }
+    if (v.status === 'in_progress') {
+      actions.push(`<button class="btn-sm" onclick="sendSms('${v.id}')">🔗 Lien client</button>`);
+    }
+
+    return `<div class="visit-card">
+      <div class="visit-info">
+        <div class="visit-name">${v.clientName}</div>
+        <div class="visit-meta">${v.clientPhone}${v.clientAddress ? ' · ' + v.clientAddress : ''} · ${date}</div>
+      </div>
+      <div class="visit-actions">
+        <span class="badge ${badgeClass}">${badgeLabel}</span>
+        ${actions.join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openModal() {
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-phone').value = '';
+  document.getElementById('new-address').value = '';
+  document.getElementById('modal-new').classList.add('open');
+  setTimeout(() => document.getElementById('new-name').focus(), 100);
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+async function createVisit() {
+  const name = document.getElementById('new-name').value.trim();
+  const phone = document.getElementById('new-phone').value.trim();
+  const address = document.getElementById('new-address').value.trim();
+  if (!name || !phone) return alert('Nom et téléphone sont requis.');
+
+  const res = await fetch('/api/visits', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientName: name, clientPhone: phone, clientAddress: address })
+  });
+  const visit = await res.json();
+  closeModal('modal-new');
+  allVisits.unshift(visit);
+  updateStats();
+  renderVisits();
+}
+
+async function sendSms(id) {
+  const visit = allVisits.find(v => v.id === id);
+  document.getElementById('sms-title').textContent = `Lien pour ${visit.clientName}`;
+  document.getElementById('sms-desc').textContent = `Numéro : ${visit.clientPhone}`;
+  document.getElementById('sms-content').textContent = '⏳ Envoi en cours…';
+  document.getElementById('modal-sms').classList.add('open');
+
+  const res = await fetch(`/api/visits/${id}/sms`, { method: 'POST' });
+  const data = await res.json();
+
+  if (data.success) {
+    currentLink = data.link;
+    if (data.demo) {
+      document.getElementById('sms-demo-note').style.display = 'block';
+      document.getElementById('sms-content').innerHTML = data.message.replace(data.link, `<span class="link-highlight">${data.link}</span>`);
+    } else {
+      document.getElementById('sms-demo-note').style.display = 'none';
+      document.getElementById('sms-content').innerHTML = `✅ SMS envoyé avec succès !<br><br>Lien : <span class="link-highlight">${data.link}</span>`;
+    }
+  } else {
+    document.getElementById('sms-content').textContent = '❌ Erreur : ' + (data.error || 'Inconnu');
+  }
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(currentLink).then(() => alert('Lien copié !'));
+}
+
+function joinCall(id) {
+  fetch(`/api/visits/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'in_progress' })
+  });
+  window.open(`/call-tech.html?id=${id}`, '_blank');
+}
+
+function downloadPdf(id) {
+  window.open(`/api/visits/${id}/pdf`, '_blank');
+}
+
+// Fermer modal en cliquant dehors
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// Raccourci Enter pour créer visite
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+});
+
+loadVisits();
+setInterval(loadVisits, 30000); // Rafraîchir toutes les 30s
+</script>
+</body>
+</html>

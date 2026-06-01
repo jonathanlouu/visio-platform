@@ -1,0 +1,19 @@
+{
+  "name": "visio-platform",
+  "version": "1.0.0",
+  "description": "Plateforme de visite technique à distance",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "npx nodemon server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0",
+    "express-session": "^1.17.0",
+    "pdfkit": "^0.15.0",
+    "socket.io": "^4.6.0",
+    "twilio": "^5.0.0",
+    "uuid": "^9.0.0"
+  }
+}

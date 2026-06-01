@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visite en cours — Technicien</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1923; color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Header */
+  header {
+    background: #162433; padding: 0 16px;
+    height: 52px; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid #1e3448; flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .client-name { font-size: 15px; font-weight: 600; }
+  .client-meta { font-size: 12px; color: #8aa0b8; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #666; flex-shrink: 0; }
+  .status-dot.connecting { background: #f59e0b; animation: pulse 1.5s infinite; }
+  .status-dot.connected { background: #10b981; }
+  .status-dot.waiting { background: #f59e0b; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .status-text { font-size: 12px; color: #8aa0b8; }
+
+  /* Main layout */
+  .main { flex: 1; display: grid; grid-template-columns: 1fr 340px; overflow: hidden; }
+
+  /* Video area */
+  .video-area { position: relative; background: #0a1520; display: flex; align-items: center; justify-content: center; }
+  #remote-video {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+  }
+  #local-video {
+    position: absolute; bottom: 16px; right: 16px;
+    width: 160px; height: 120px; object-fit: cover;
+    border-radius: 10px; border: 2px solid #1e3448;
+    background: #0a1520;
+  }
+  .waiting-overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px;
+  }
+  .waiting-overlay svg { width: 64px; height: 64px; fill: #1e3448; }
+  .waiting-overlay p { color: #8aa0b8; font-size: 15px; }
+
+  /* Controls bar */
+  .controls {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 16px; display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: linear-gradient(transparent, rgba(15,25,35,0.9));
+  }
+  .ctrl-btn {
+    width: 48px; height: 48px; border-radius: 50%; border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 20px; transition: transform 0.1s;
+  }
+  .ctrl-btn:active { transform: scale(0.92); }
+  .ctrl-btn.camera { background: #1e3448; }
+  .ctrl-btn.camera:hover { background: #253d54; }
+  .ctrl-btn.capture { background: #1a4f8a; }
+  .ctrl-btn.capture:hover { background: #153d6e; }
+  .ctrl-btn.end { background: #dc2626; }
+  .ctrl-btn.end:hover { background: #b91c1c; }
+  .ctrl-label { font-size: 11px; color: #8aa0b8; text-align: center; }
+  .ctrl-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+  /* Sidebar */
+  .sidebar {
+    background: #162433; border-left: 1px solid #1e3448;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-tabs { display: flex; border-bottom: 1px solid #1e3448; flex-shrink: 0; }
+  .tab-btn {
+    flex: 1; padding: 12px; font-size: 13px; font-weight: 500;
+    background: none; border: none; color: #8aa0b8; cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { color: white; border-bottom-color: #1a4f8a; }
+  .tab-content { flex: 1; overflow-y: auto; padding: 16px; }
+
+  /* Photos tab */
+  .photos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .photo-thumb {
+    aspect-ratio: 4/3; border-radius: 8px; overflow: hidden;
+    border: 1px solid #1e3448; cursor: pointer; position: relative;
+    background: #0a1520;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-thumb:hover::after {
+    content: '🔍'; position: absolute; inset: 0;
+    background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+  }
+  .photos-empty { text-align: center; color: #8aa0b8; font-size: 13px; padding: 20px; }
+  .photo-count { font-size: 12px; color: #8aa0b8; margin-bottom: 8px; }
+
+  /* Form tab */
+  .form-section { margin-bottom: 20px; }
+  .form-section-title {
+    font-size: 11px; font-weight: 600; color: #8aa0b8; text-transform: uppercase;
+    letter-spacing: 0.06em; margin-bottom: 10px; padding-bottom: 6px;
+    border-bottom: 1px solid #1e3448;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .form-group { margin-bottom: 10px; }
+  .form-group label { display: block; font-size: 12px; color: #8aa0b8; margin-bottom: 4px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 8px 10px;
+    background: #0f1923; border: 1px solid #1e3448;
+    border-radius: 7px; color: white; font-size: 13px; outline: none;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: #1a4f8a;
+  }
+  .form-group select option { background: #162433; }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+
+  /* CTA fin de visite */
+  .end-panel { margin-top: 16px; }
+  .btn-complete {
+    width: 100%; padding: 12px; background: #059669; color: white;
+    border: none; border-radius: 10px; font-size: 14px; font-weight: 600;
+    cursor: pointer; margin-bottom: 8px;
+  }
+  .btn-complete:hover { background: #047857; }
+  .btn-pdf {
+    width: 100%; padding: 12px; background: #1a4f8a; color: white;
+    border: none; border-radius: 10px; font-size: 14px; font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-pdf:hover { background: #153d6e; }
+  .btn-pdf:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Flash capture */
+  .flash { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; z-index: 9999; transition: opacity 0.05s; }
+  .flash.active { opacity: 0.6; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: #10b981; color: white; padding: 10px 20px;
+    border-radius: 20px; font-size: 13px; font-weight: 500;
+    z-index: 9999; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Photo viewer */
+  .photo-viewer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+    display: none; align-items: center; justify-content: center;
+    z-index: 500;
+  }
+  .photo-viewer-overlay.open { display: flex; }
+  .photo-viewer-overlay img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
+  .photo-viewer-close {
+    position: absolute; top: 20px; right: 20px;
+    background: rgba(255,255,255,0.2); border: none; color: white;
+    width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="flash" id="flash"></div>
+<div class="toast" id="toast"></div>
+
+<div class="photo-viewer-overlay" id="photo-viewer" onclick="closePhotoViewer()">
+  <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
+  <img id="viewer-img" src="" alt="Photo agrandie">
+</div>
+
+<header>
+  <div class="header-left">
+    <div class="status-dot connecting" id="status-dot"></div>
+    <div>
+      <div class="client-name" id="header-name">Chargement…</div>
+      <div class="client-meta" id="header-meta"></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="status-text" id="status-text">Connexion…</span>
+    <button onclick="location.href='/dashboard.html'" style="background:none;border:1px solid #1e3448;color:#8aa0b8;padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;">
+      ← Tableau de bord
+    </button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Zone vidéo -->
+  <div class="video-area">
+    <div class="waiting-overlay" id="waiting-overlay">
+      <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+      <p id="waiting-text">En attente du client…</p>
+      <p style="font-size:12px;color:#4a6278;">Envoyez le lien SMS depuis le tableau de bord</p>
+    </div>
+    <video id="remote-video" autoplay playsinline style="display:none;"></video>
+    <video id="local-video" autoplay playsinline muted></video>
+    <div class="controls">
+      <div class="ctrl-group">
+        <button class="ctrl-btn camera" id="btn-mic" title="Micro" onclick="toggleMic()">🎤</button>
+        <span class="ctrl-label">Micro</span>
+      </div>
+      <div class="ctrl-group">
+        <button class="ctrl-btn capture" onclick="capturePhoto()" title="Prendre une photo">📸</button>
+        <span class="ctrl-label">Photo</span>
+      </div>
+      <div class="ctrl-group">
+        <button class="ctrl-btn end" onclick="endCall()" title="Terminer">📵</button>
+        <span class="ctrl-label">Terminer</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="showTab('photos', this)">📷 Photos</button>
+      <button class="tab-btn" onclick="showTab('form', this)">📋 Formulaire</button>
+    </div>
+
+    <div id="tab-photos" class="tab-content">
+      <div class="photo-count" id="photo-count">Aucune photo</div>
+      <div class="photos-grid" id="photos-grid">
+        <div class="photos-empty">Utilisez le bouton 📸 pour capturer des photos de la caméra du client</div>
+      </div>
+    </div>
+
+    <div id="tab-form" class="tab-content" style="display:none;">
+      <div class="form-section">
+        <div class="form-section-title">Logement</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Surface (m²)</label>
+            <input type="number" id="f-surface" placeholder="85">
+          </div>
+          <div class="form-group">
+            <label>Année construction</label>
+            <input type="number" id="f-annee" placeholder="1975">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Type de logement</label>
+          <select id="f-type-logement">
+            <option value="">Sélectionner…</option>
+            <option>Maison individuelle</option>
+            <option>Appartement</option>
+            <option>Maison mitoyenne</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>DPE actuel</label>
+          <select id="f-dpe">
+            <option value="">Sélectionner…</option>
+            <option>A</option><option>B</option><option>C</option>
+            <option>D</option><option>E</option><option>F</option><option>G</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Équipements existants</div>
+        <div class="form-group">
+          <label>Système de chauffage</label>
+          <select id="f-chauffage">
+            <option value="">Sélectionner…</option>
+            <option>Chaudière gaz</option>
+            <option>Chaudière fioul</option>
+            <option>Pompe à chaleur</option>
+            <option>Électrique (convecteurs)</option>
+            <option>Poêle à bois</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Chauffe-eau</label>
+          <select id="f-chauffe-eau">
+            <option value="">Sélectionner…</option>
+            <option>Ballon électrique</option>
+            <option>Chauffe-eau thermodynamique</option>
+            <option>Chauffe-eau solaire</option>
+            <option>Intégré chaudière</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Isolation combles</label>
+          <select id="f-combles">
+            <option value="">Sélectionner…</option>
+            <option>Non isolés</option>
+            <option>Isolés (avant 2000)</option>
+            <option>Isolés (après 2000)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Isolation murs</label>
+          <select id="f-murs">
+            <option value="">Sélectionner…</option>
+            <option>Non isolés</option>
+            <option>ITI (intérieur)</option>
+            <option>ITE (extérieur)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Notes</div>
+        <div class="form-group">
+          <textarea id="f-notes" placeholder="Observations, remarques particulières…"></textarea>
+        </div>
+      </div>
+
+      <div class="end-panel">
+        <button class="btn-complete" onclick="saveAndComplete()">✅ Terminer et enregistrer</button>
+        <button class="btn-pdf" id="btn-pdf" onclick="generatePdf()" disabled>📄 Générer le PDF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const visitId = params.get('id');
+if (!visitId) { alert('ID de visite manquant'); location.href = '/dashboard.html'; }
+
+let visit = null;
+let localStream = null;
+let peerConnection = null;
+let micEnabled = true;
+let visitCompleted = false;
+const photoDataUrls = {};
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+};
+
+const socket = io();
+
+// ── Charger la visite ──
+async function loadVisit() {
+  const res = await fetch(`/api/visits/${visitId}`);
+  visit = await res.json();
+  document.getElementById('header-name').textContent = visit.clientName;
+  document.getElementById('header-meta').textContent = visit.clientPhone + (visit.clientAddress ? ' · ' + visit.clientAddress : '');
+  if (visit.status === 'completed') {
+    document.getElementById('btn-pdf').disabled = false;
+    visitCompleted = true;
+  }
+  if (visit.photos && visit.photos.length > 0) renderPhotos(visit.photos);
+}
+
+// ── WebRTC ──
+async function startLocalStream() {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: true });
+    document.getElementById('local-video').srcObject = localStream;
+  } catch (e) {
+    console.warn('Caméra locale non disponible:', e);
+  }
+}
+
+function createPeerConnection() {
+  peerConnection = new RTCPeerConnection(ICE_SERVERS);
+
+  if (localStream) {
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  }
+
+  peerConnection.ontrack = ({ streams }) => {
+    const remoteVideo = document.getElementById('remote-video');
+    remoteVideo.srcObject = streams[0];
+    remoteVideo.style.display = 'block';
+    document.getElementById('waiting-overlay').style.display = 'none';
+    setStatus('connected', '🟢 Connecté');
+  };
+
+  peerConnection.onicecandidate = ({ candidate }) => {
+    if (candidate) socket.emit('ice-candidate', { roomId: visitId, candidate });
+  };
+
+  peerConnection.onconnectionstatechange = () => {
+    if (['disconnected', 'failed', 'closed'].includes(peerConnection.connectionState)) {
+      document.getElementById('remote-video').style.display = 'none';
+      document.getElementById('waiting-overlay').style.display = 'flex';
+      document.getElementById('waiting-text').textContent = 'Client déconnecté';
+      setStatus('waiting', '🟡 En attente');
+    }
+  };
+}
+
+async function sendOffer() {
+  createPeerConnection();
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+  socket.emit('offer', { roomId: visitId, offer });
+}
+
+socket.on('connect', () => {
+  socket.emit('join-room', { roomId: visitId, role: 'tech' });
+});
+
+socket.on('peer-joined', async ({ role }) => {
+  if (role === 'client') {
+    setStatus('connecting', '🟡 Client connecté, établissement…');
+    await sendOffer();
+  }
+});
+
+socket.on('answer', async ({ answer }) => {
+  if (peerConnection) await peerConnection.setRemoteDescription(answer);
+});
+
+socket.on('ice-candidate', async ({ candidate }) => {
+  if (peerConnection) {
+    try { await peerConnection.addIceCandidate(candidate); } catch (e) {}
+  }
+});
+
+socket.on('peer-left', () => {
+  document.getElementById('remote-video').style.display = 'none';
+  document.getElementById('waiting-overlay').style.display = 'flex';
+  document.getElementById('waiting-text').textContent = 'Client déconnecté';
+  setStatus('waiting', '🟡 En attente');
+});
+
+socket.on('room-status', ({ client }) => {
+  if (client) sendOffer();
+});
+
+// ── Contrôles ──
+function setStatus(cls, text) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot ' + cls;
+  document.getElementById('status-text').textContent = text;
+}
+
+function toggleMic() {
+  if (!localStream) return;
+  micEnabled = !micEnabled;
+  localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+  document.getElementById('btn-mic').textContent = micEnabled ? '🎤' : '🔇';
+}
+
+// ── Capture photo ──
+function capturePhoto() {
+  const remoteVideo = document.getElementById('remote-video');
+  if (!remoteVideo.srcObject) { showToast('⚠️ Pas de vidéo client'); return; }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = remoteVideo.videoWidth || 640;
+  canvas.height = remoteVideo.videoHeight || 480;
+  canvas.getContext('2d').drawImage(remoteVideo, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+  // Flash visuel
+  const flash = document.getElementById('flash');
+  flash.classList.add('active');
+  setTimeout(() => flash.classList.remove('active'), 150);
+
+  // Envoyer au serveur
+  fetch(`/api/visits/${visitId}/photos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataUrl })
+  }).then(r => r.json()).then(data => {
+    if (data.filename) {
+      if (!visit.photos) visit.photos = [];
+      visit.photos.push(data.filename);
+      photoDataUrls[data.filename] = dataUrl;
+      renderPhotos(visit.photos);
+      showToast('📸 Photo capturée !');
+    }
+  });
+}
+
+function renderPhotos(photos) {
+  const grid = document.getElementById('photos-grid');
+  const count = document.getElementById('photo-count');
+  count.textContent = `${photos.length} photo${photos.length > 1 ? 's' : ''}`;
+
+  if (!photos.length) {
+    grid.innerHTML = '<div class="photos-empty">Aucune photo. Utilisez le bouton 📸</div>';
+    return;
+  }
+
+  grid.innerHTML = photos.map((p, i) => {
+    const src = photoDataUrls[p] || `/api/visits/${visitId}/photos/${p}`;
+    return `<div class="photo-thumb" onclick="openPhotoViewer('${src}')">
+      <img src="${src}" alt="Photo ${i+1}" loading="lazy">
+    </div>`;
+  }).join('');
+}
+
+function openPhotoViewer(src) {
+  document.getElementById('viewer-img').src = src;
+  document.getElementById('photo-viewer').classList.add('open');
+}
+function closePhotoViewer() {
+  document.getElementById('photo-viewer').classList.remove('open');
+}
+
+// ── Onglets ──
+function showTab(name, btn) {
+  document.getElementById('tab-photos').style.display = name === 'photos' ? '' : 'none';
+  document.getElementById('tab-form').style.display = name === 'form' ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Enregistrer et terminer ──
+async function saveAndComplete() {
+  const equipment = {
+    surface: document.getElementById('f-surface').value,
+    anneeConstruction: document.getElementById('f-annee').value,
+    typeLogement: document.getElementById('f-type-logement').value,
+    dpe: document.getElementById('f-dpe').value,
+    chauffage: document.getElementById('f-chauffage').value,
+    chauffeEau: document.getElementById('f-chauffe-eau').value,
+    isolationCombles: document.getElementById('f-combles').value,
+    isolationMurs: document.getElementById('f-murs').value,
+  };
+  const notes = document.getElementById('f-notes').value;
+
+  await fetch(`/api/visits/${visitId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'completed', equipment, notes })
+  });
+
+  visitCompleted = true;
+  document.getElementById('btn-pdf').disabled = false;
+  showToast('✅ Visite enregistrée !');
+}
+
+function generatePdf() {
+  window.open(`/api/visits/${visitId}/pdf`, '_blank');
+}
+
+function endCall() {
+  if (confirm('Terminer la visite ? Pensez à enregistrer le formulaire avant.')) {
+    if (peerConnection) peerConnection.close();
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    location.href = '/dashboard.html';
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Init ──
+loadVisit();
+startLocalStream();
+setStatus('waiting', '🟡 En attente du client');
+</script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Visite technique à distance</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a1520; color: white;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Écran d'accueil */
+  #screen-welcome {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px; text-align: center;
+    gap: 20px;
+  }
+  .welcome-icon {
+    width: 80px; height: 80px; background: #1a4f8a;
+    border-radius: 24px; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 8px;
+  }
+  .welcome-icon svg { width: 44px; height: 44px; fill: white; }
+  #screen-welcome h1 { font-size: 22px; font-weight: 700; }
+  #screen-welcome p { color: #8aa0b8; font-size: 15px; line-height: 1.6; max-width: 300px; }
+  .btn-start {
+    background: #1a4f8a; color: white; border: none;
+    padding: 18px 40px; border-radius: 16px;
+    font-size: 17px; font-weight: 700; cursor: pointer;
+    width: 100%; max-width: 300px; margin-top: 8px;
+    -webkit-appearance: none;
+  }
+  .btn-start:active { background: #153d6e; transform: scale(0.97); }
+  .info-box {
+    background: rgba(26,79,138,0.15); border: 1px solid rgba(26,79,138,0.3);
+    border-radius: 12px; padding: 14px 18px;
+    font-size: 13px; color: #8aa0b8; line-height: 1.6;
+    max-width: 300px; text-align: left;
+  }
+  .info-box strong { color: white; }
+
+  /* Écran principal appel */
+  #screen-call {
+    flex: 1; display: none; flex-direction: column;
+    position: relative;
+  }
+  #local-video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    background: #0a1520;
+    display: block;
+  }
+  #remote-audio { display: none; }
+
+  /* Status bar */
+  .status-bar {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 16px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(rgba(10,21,32,0.8), transparent);
+  }
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(0,0,0,0.5); padding: 8px 16px;
+    border-radius: 20px; font-size: 13px; font-weight: 500;
+    backdrop-filter: blur(4px);
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; }
+  .status-dot.connected { background: #10b981; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .status-dot.connecting { animation: pulse 1.5s infinite; }
+
+  /* Bottom bar */
+  .bottom-bar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 20px 24px; padding-bottom: max(20px, env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, rgba(10,21,32,0.9));
+    display: flex; align-items: center; justify-content: center;
+    gap: 24px;
+  }
+  .ctrl-btn {
+    width: 56px; height: 56px; border-radius: 50%; border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 24px;
+  }
+  .ctrl-btn.mic { background: rgba(255,255,255,0.15); }
+  .ctrl-btn.mic:active { background: rgba(255,255,255,0.25); }
+  .ctrl-btn.end { background: #dc2626; }
+  .ctrl-btn.end:active { background: #b91c1c; }
+
+  /* Écran d'erreur */
+  #screen-error {
+    flex: 1; display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px; text-align: center; gap: 16px;
+  }
+  #screen-error .icon { font-size: 48px; }
+  #screen-error h2 { font-size: 18px; }
+  #screen-error p { color: #8aa0b8; font-size: 14px; line-height: 1.6; }
+
+  /* Nom de la visite */
+  #visit-client-name { font-size: 12px; color: #8aa0b8; text-align: center; padding: 8px; position: absolute; top: 60px; width: 100%; }
+</style>
+</head>
+<body>
+
+<!-- Écran d'accueil -->
+<div id="screen-welcome">
+  <div class="welcome-icon">
+    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+  </div>
+  <h1>Visite technique</h1>
+  <p id="welcome-desc">Votre technicien va réaliser une visite à distance. Appuyez sur le bouton pour activer votre caméra.</p>
+
+  <div class="info-box">
+    <strong>Comment ça fonctionne :</strong><br>
+    Votre technicien verra votre caméra pour évaluer votre installation. Aucune installation d'application requise.
+  </div>
+
+  <button class="btn-start" id="btn-start" onclick="startCall()">
+    📹 Démarrer la visite
+  </button>
+</div>
+
+<!-- Écran appel -->
+<div id="screen-call">
+  <video id="local-video" autoplay playsinline muted></video>
+  <audio id="remote-audio" autoplay></audio>
+
+  <div class="status-bar">
+    <div class="status-pill">
+      <div class="status-dot connecting" id="status-dot"></div>
+      <span id="status-text">En attente du technicien…</span>
+    </div>
+  </div>
+
+  <div id="visit-client-name"></div>
+
+  <div class="bottom-bar">
+    <button class="ctrl-btn mic" id="btn-mic" onclick="toggleMic()" title="Micro">🎤</button>
+    <button class="ctrl-btn end" onclick="endCall()" title="Raccrocher">📵</button>
+  </div>
+</div>
+
+<!-- Écran erreur -->
+<div id="screen-error">
+  <div class="icon">📵</div>
+  <h2 id="error-title">Lien invalide</h2>
+  <p id="error-msg">Ce lien de visite n'est pas valide ou a expiré. Contactez votre installateur.</p>
+</div>
+
+<script>
+const visitId = location.pathname.split('/').pop();
+let localStream = null;
+let peerConnection = null;
+let micEnabled = true;
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+};
+
+// Vérifier la visite
+fetch(`/api/visits/${visitId}`)
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(visit => {
+    document.getElementById('welcome-desc').textContent =
+      `Bonjour ${visit.clientName} ! Votre technicien va réaliser une visite à distance. Appuyez sur le bouton pour activer votre caméra.`;
+    document.getElementById('visit-client-name').textContent = visit.clientName;
+  })
+  .catch(() => {
+    document.getElementById('screen-welcome').style.display = 'none';
+    const err = document.getElementById('screen-error');
+    err.style.display = 'flex';
+  });
+
+const socket = io();
+
+async function startCall() {
+  document.getElementById('btn-start').textContent = '⏳ Activation…';
+  document.getElementById('btn-start').disabled = true;
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true
+    });
+  } catch (e) {
+    // Fallback caméra frontale
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    } catch (e2) {
+      alert("Impossible d'accéder à votre caméra. Vérifiez les permissions dans les réglages de votre téléphone.");
+      document.getElementById('btn-start').textContent = '📹 Démarrer la visite';
+      document.getElementById('btn-start').disabled = false;
+      return;
+    }
+  }
+
+  document.getElementById('local-video').srcObject = localStream;
+  document.getElementById('screen-welcome').style.display = 'none';
+  document.getElementById('screen-call').style.display = 'flex';
+
+  socket.emit('join-room', { roomId: visitId, role: 'client' });
+}
+
+function createPeerConnection() {
+  peerConnection = new RTCPeerConnection(ICE_SERVERS);
+
+  if (localStream) {
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  }
+
+  peerConnection.ontrack = ({ streams, track }) => {
+    if (track.kind === 'audio') {
+      document.getElementById('remote-audio').srcObject = streams[0];
+    }
+    setStatus('connected', '🟢 Technicien connecté');
+  };
+
+  peerConnection.onicecandidate = ({ candidate }) => {
+    if (candidate) socket.emit('ice-candidate', { roomId: visitId, candidate });
+  };
+
+  peerConnection.onconnectionstatechange = () => {
+    if (['disconnected', 'failed'].includes(peerConnection.connectionState)) {
+      setStatus('connecting', 'Reconnexion…');
+    }
+    if (peerConnection.connectionState === 'connected') {
+      setStatus('connected', '🟢 Technicien connecté');
+    }
+  };
+}
+
+socket.on('peer-joined', ({ role }) => {
+  if (role === 'tech') setStatus('connecting', 'Technicien présent, connexion…');
+});
+
+socket.on('offer', async ({ offer }) => {
+  createPeerConnection();
+  await peerConnection.setRemoteDescription(offer);
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+  socket.emit('answer', { roomId: visitId, answer });
+});
+
+socket.on('ice-candidate', async ({ candidate }) => {
+  if (peerConnection) {
+    try { await peerConnection.addIceCandidate(candidate); } catch (e) {}
+  }
+});
+
+socket.on('peer-left', () => {
+  setStatus('connecting', 'Technicien déconnecté…');
+});
+
+function setStatus(cls, text) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot ' + cls;
+  document.getElementById('status-text').textContent = text;
+}
+
+function toggleMic() {
+  if (!localStream) return;
+  micEnabled = !micEnabled;
+  localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+  document.getElementById('btn-mic').textContent = micEnabled ? '🎤' : '🔇';
+}
+
+function endCall() {
+  if (confirm('Quitter la visite ?')) {
+    if (peerConnection) peerConnection.close();
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    document.getElementById('screen-call').style.display = 'none';
+    document.getElementById('screen-error').style.display = 'flex';
+    document.getElementById('error-title').textContent = 'Visite terminée';
+    document.getElementById('error-msg').textContent = 'La visite est terminée. Merci pour votre confiance !';
+  }
+}
+</script>
+</body>
+</html>

@@ -53,6 +53,7 @@
     position: absolute; bottom: 0; left: 0; right: 0;
     padding: 16px; display: flex; align-items: center; justify-content: center; gap: 12px;
     background: linear-gradient(transparent, rgba(15,25,35,0.9));
+    z-index: 10;
   }
   .ctrl-btn {
     width: 48px; height: 48px; border-radius: 50%; border: none;
@@ -205,6 +206,10 @@
       <div class="ctrl-group">
         <button class="ctrl-btn camera" id="btn-mic" title="Micro" onclick="toggleMic()">🎤</button>
         <span class="ctrl-label">Micro</span>
+      </div>
+      <div class="ctrl-group">
+        <button class="ctrl-btn camera" id="btn-cam" title="Caméra" onclick="toggleCam()">📷</button>
+        <span class="ctrl-label">Caméra</span>
       </div>
       <div class="ctrl-group">
         <button class="ctrl-btn capture" onclick="capturePhoto()" title="Prendre une photo">📸</button>
@@ -433,11 +438,23 @@ function setStatus(cls, text) {
   document.getElementById('status-text').textContent = text;
 }
 
+let camEnabled = true;
+
 function toggleMic() {
   if (!localStream) return;
   micEnabled = !micEnabled;
   localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
   document.getElementById('btn-mic').textContent = micEnabled ? '🎤' : '🔇';
+}
+
+function toggleCam() {
+  if (!localStream) return;
+  camEnabled = !camEnabled;
+  localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
+  const btn = document.getElementById('btn-cam');
+  btn.textContent = camEnabled ? '📷' : '🚫';
+  btn.style.background = camEnabled ? '' : '#dc2626';
+  document.getElementById('local-video').style.opacity = camEnabled ? '1' : '0.2';
 }
 
 // ── Capture photo ──

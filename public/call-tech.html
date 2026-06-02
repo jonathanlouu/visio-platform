@@ -336,7 +336,7 @@ const photoDataUrls = {};
 
 let ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-const socket = io();
+const socket = io({ autoConnect: false });
 
 // ── Charger la visite ──
 async function loadVisit() {
@@ -397,9 +397,6 @@ async function sendOffer() {
   socket.emit('offer', { roomId: visitId, offer });
 }
 
-socket.on('connect', () => {
-  socket.emit('join-room', { roomId: visitId, role: 'tech' });
-});
 
 socket.on('peer-joined', async ({ role }) => {
   if (role === 'client') {
@@ -553,16 +550,25 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// ── Init ──
-fetch('/api/ice-servers')
-  .then(r => r.json())
-  .then(cfg => { ICE_SERVERS = cfg; })
-  .catch(() => {})
-  .finally(() => {
-    loadVisit();
-    startLocalStream();
-    setStatus('waiting', '🟡 En attente du client');
+// ── Init : ordre garanti ──
+// 1. ICE servers → 2. Caméra locale → 3. Rejoindre la room
+async function init() {
+  try {
+    const cfg = await fetch('/api/ice-servers').then(r => r.json());
+    ICE_SERVERS = cfg;
+  } catch(e) {}
+
+  await startLocalStream();
+  loadVisit();
+  setStatus('waiting', '🟡 En attente du client');
+
+  // Connexion socket APRÈS que localStream soit prêt
+  socket.connect();
+  socket.once('connect', () => {
+    socket.emit('join-room', { roomId: visitId, role: 'tech' });
   });
+}
+init();
 </script>
 </body>
 </html>

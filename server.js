@@ -13,7 +13,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const PORT = process.env.PORT || 3000;
-const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
+const APP_URL = 'https://visio-platform-production.up.railway.app';
 const DATA_DIR = path.join(__dirname, 'data');
 const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
 const VISITS_FILE = path.join(DATA_DIR, 'visits.json');

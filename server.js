@@ -352,6 +352,31 @@ app.get('/api/visits/:id/pdf', requireAuth, (req, res) => {
   doc.end();
 });
 
+// ─── API ICE Servers (Twilio NTS) ────────────────────────────────────────────
+
+app.get('/api/ice-servers', async (req, res) => {
+  // Fallback STUN si Twilio non configuré
+  const fallback = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_ACCOUNT_SID !== 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx') {
+    try {
+      const twilio = require('twilio');
+      const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      const token = await client.tokens.create();
+      return res.json({ iceServers: token.iceServers });
+    } catch (e) {
+      console.warn('Twilio NTS error, using fallback STUN:', e.message);
+    }
+  }
+  res.json(fallback);
+});
+
 // ─── WebRTC Signaling via Socket.io ──────────────────────────────────────────
 
 const rooms = {}; // roomId -> { tech: socketId, client: socketId }

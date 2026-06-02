@@ -161,15 +161,13 @@ let localStream = null;
 let peerConnection = null;
 let micEnabled = true;
 
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-  ]
-};
+let ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+// Charger les ICE servers au démarrage
+fetch('/api/ice-servers')
+  .then(r => r.json())
+  .then(cfg => { ICE_SERVERS = cfg; })
+  .catch(() => {});
 
 // Vérifier la visite
 fetch(`/api/visits/${visitId}`)

@@ -334,15 +334,7 @@ let micEnabled = true;
 let visitCompleted = false;
 const photoDataUrls = {};
 
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-  ]
-};
+let ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 const socket = io();
 
@@ -562,9 +554,15 @@ function showToast(msg) {
 }
 
 // ── Init ──
-loadVisit();
-startLocalStream();
-setStatus('waiting', '🟡 En attente du client');
+fetch('/api/ice-servers')
+  .then(r => r.json())
+  .then(cfg => { ICE_SERVERS = cfg; })
+  .catch(() => {})
+  .finally(() => {
+    loadVisit();
+    startLocalStream();
+    setStatus('waiting', '🟡 En attente du client');
+  });
 </script>
 </body>
 </html>

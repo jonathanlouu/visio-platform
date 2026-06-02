@@ -39,7 +39,6 @@
     width: 160px; height: 120px; object-fit: cover;
     border-radius: 10px; border: 2px solid #1e3448;
     background: #0a1520;
-    z-index: 50;
   }
   .waiting-overlay {
     position: absolute; inset: 0;
@@ -49,15 +48,12 @@
   .waiting-overlay svg { width: 64px; height: 64px; fill: #1e3448; }
   .waiting-overlay p { color: #8aa0b8; font-size: 15px; }
 
-  /* Controls bar */
+  /* Controls bar — position fixed pour rester AU-DESSUS des couches GPU vidéo */
   .controls {
-    position: absolute; bottom: 0; left: 0; right: 0;
+    position: fixed; bottom: 0; left: 0; right: 340px;
     padding: 16px; display: flex; align-items: center; justify-content: center; gap: 12px;
-    background: linear-gradient(transparent, rgba(15,25,35,0.9));
-    z-index: 100;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    pointer-events: all;
+    background: linear-gradient(transparent, rgba(15,25,35,0.95));
+    z-index: 9999;
   }
   .ctrl-btn {
     width: 48px; height: 48px; border-radius: 50%; border: none;

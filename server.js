@@ -29,18 +29,7 @@ if (!fs.existsSync(VISITS_FILE)) {
 }
 
 // Charger les utilisateurs depuis .env
-const USERS = {};
-const usersEnv = process.env.USERS || 'admin:admin';
-console.log('RAW USERS ENV:', JSON.stringify(usersEnv));
-usersEnv.split(',').forEach(u => {
-  const idx = u.indexOf(':');
-  if (idx > 0) {
-    const login = u.slice(0, idx).trim();
-    const pass = u.slice(idx + 1).trim();
-    USERS[login] = pass;
-    console.log('USER ADDED:', JSON.stringify(login), 'PASS:', JSON.stringify(pass));
-  }
-});
+const USERS = { 'admin': process.env.ADMIN_PASSWORD || 'admin123' };
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
@@ -75,8 +64,6 @@ function requireAuth(req, res, next) {
 
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  console.log('LOGIN ATTEMPT:', JSON.stringify(username), JSON.stringify(password));
-  console.log('USERS OBJ:', JSON.stringify(USERS));
   if (USERS[username] && USERS[username] === password) {
     req.session.user = username;
     return res.redirect('/dashboard.html');

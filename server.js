@@ -29,7 +29,7 @@ if (!fs.existsSync(VISITS_FILE)) {
 }
 
 // Charger les utilisateurs depuis .env
-const USERS = { 'admin': process.env.ADMIN_PASSWORD || 'admin123' };
+const USERS = { 'admin': 'Ecopartners2026' };
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
